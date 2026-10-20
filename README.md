@@ -53,7 +53,7 @@
   </li>
 
   <li>
-    <strong>Install the Script</strong><br>
+    <strong>Install this Script</strong><br>
     <a href="https://github.com/grmpnk/Bookmark-Anywhere/raw/refs/heads/main/userscript.user.js">
       Click here
     </a>
