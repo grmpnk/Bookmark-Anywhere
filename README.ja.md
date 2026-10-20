@@ -45,7 +45,7 @@
   <li>
     <strong>ユーザースクリプトを許可する</strong><br>
     拡張機能の管理で「ユーザースクリプトを許可」してください。詳しくは公式
-    <a href="https://www.tampermonkey.net/faq.php?locale=en&q=Q209">
+    <a href="https://www.tampermonkey.net/faq.php?locale=ja&q=Q209">
       FAQ
     </a>
   </li>
