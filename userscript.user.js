@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bookmark Anywhere
 // @namespace    https://github.com/grmpnk
-// @version      1
+// @version      1.1
 // @description  Useful for sites that do not provide a bookmark feature.
 // @author       grmpneko
 // @match        http*://*/*
@@ -319,12 +319,86 @@ li:hover{background:rgba(255,255,255,.06)}
         win.document.body.replaceChildren(main);
     };
 
+    // ===== ページ側で実行される関数(data URL内で動く。GM_* は使えない) =====
+    const viewMain=data=>{
+        const $=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+        let active='All';
+        const picked=new Set();
+        const main=$('main'),sub=$('div','sub'),tabs=$('div','tabs'),list=$('div'),openBtn=$('button','primary');
+        openBtn.type='button';
+        const head=$('header');
+        head.append($('h1','','Bookmarks'),sub);
+        const actions=$('div','actions');
+        actions.append(openBtn);
+        main.append(head,tabs,actions,list);
+        document.title='Bookmarks';
+        document.body.append(main);
+
+        const updateBar=()=>{openBtn.textContent='Open selected ('+picked.size+')';openBtn.disabled=!picked.size;};
+        openBtn.onclick=()=>{for(const u of picked)window.open(u,'_blank','noopener');};
+        const check=(urls,on)=>{urls.forEach(u=>on?picked.add(u):picked.delete(u));render();};
+
+        const folderBlock=(label,items)=>{
+            const urls=items.map(i=>i.url);
+            const det=$('details','folder'),sum=$('summary');
+            const cb=$('input');cb.type='checkbox';cb.checked=urls.length>0&&urls.every(u=>picked.has(u));
+            cb.onchange=()=>check(urls,cb.checked);
+            sum.append($('span','chev'),cb,$('span','name',label),$('span','badge',items.length));
+            const ul=$('ul');
+            for(const i of items){
+                const li=$('li'),c=$('input');
+                c.type='checkbox';c.checked=picked.has(i.url);
+                c.onchange=()=>{c.checked?picked.add(i.url):picked.delete(i.url);updateBar();};
+                const txt=$('div','txt'),a=$('a','',i.name);
+                a.href=i.url;a.target='_blank';a.rel='noopener';
+                txt.append(a,$('small','',i.url));
+                li.append(c,$('span','ava',[...i.name][0].toUpperCase()),txt);
+                ul.append(li);
+            }
+            det.append(sum,ul);
+            return det;
+        };
+
+        const section=o=>{
+            const g=data.sites[o];
+            if(active!=='All'&&g.tab!==active)return null;
+            const det=$('details','site'),sum=$('summary');
+            sum.append($('span','chev'),$('span','origin',o));
+            if(g.tab)sum.append($('span','tag',g.tab));
+            sum.append($('span','badge',g.items.length));
+            const body=$('div','body');
+            const free=g.items.filter(i=>!i.folder);
+            if(free.length)body.append(folderBlock('Unfiled',free));
+            for(const f of g.folders)body.append(folderBlock('📁 '+f,g.items.filter(i=>i.folder===f)));
+            det.append(sum,body);
+            return det;
+        };
+
+        const render=()=>{
+            const origins=Object.keys(data.sites);
+            sub.textContent=origins.reduce((n,o)=>n+data.sites[o].items.length,0)+' bookmarks across '+origins.length+' sites';
+            tabs.replaceChildren(...['All',...data.tabs].map(n=>{
+                const b=$('button',n===active?'tab on':'tab',n);
+                b.type='button';
+                b.onclick=()=>{active=n;picked.clear();render();};
+                return b;
+            }));
+            const secs=origins.map(section).filter(Boolean);
+            list.replaceChildren(...(secs.length?secs:[$('p','empty','No bookmarks here yet.')]));
+            updateBar();
+        };
+        render();
+    };
+
+    const buildHtml=data=>{
+        const json=JSON.stringify(data).replace(/</g,'\\u003c').replace(/\u2028|\u2029/g,'');
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bookmarks</title><style>${css}</style></head><body><script>(${viewMain.toString()})(${json});<\/script></body></html>`;
+    };
+
     const openView=async()=>{
-        win=window.open('',NAME);
-        if(!win)return;
-        build();
-        win.focus();
-        await render();
+        const html=buildHtml(await load());
+        const dataUrl='data:text/html;charset=utf-8,'+encodeURIComponent(html);
+        GM_openInTab(dataUrl,{active:true,insert:true});
     };
 
     GM_addValueChangeListener(KEY,async()=>{
